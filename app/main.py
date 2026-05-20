@@ -8,6 +8,8 @@ from app.core.db import engine, Base
 from app.middleware.logging import LoggingMiddleware
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
+from fastapi.responses import FileResponse
+from pathlib import Path
 import redis.asyncio as aioredis
 import structlog
 import os
@@ -65,13 +67,28 @@ async def on_shutdown():
 
 # === Роутеры ===
 app.include_router(api_router, prefix="/api/v1")
+# ===== FRONTEND: SPA ROUTING =====
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    """Раздаёт index.html для всех путей, кроме API и документации."""
+    # Исключаем системные и API-маршруты
+    if full_path.startswith(("api/", "docs", "openapi.json", "health", "static/")):
+        return {"detail": "Not Found"}
+    
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    return {"detail": "Frontend not built"}
 # === Админ-панель ===
 setup_admin(app)
 
 # === Health check (без лимита — для мониторинга) ===
-@app.get("/health")
+# === Health check endpoint ===
+@app.get("/health", include_in_schema=False)
 async def health_check():
+    """Простая проверка здоровья сервиса."""
     return {"status": "ok"}
 
 # === Корневой эндпоинт (заглушка) ===

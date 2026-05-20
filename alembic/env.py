@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.seo_data.models import SERPQuery, KeywordData, SEOAudit
 from app.models.rank_tracking.models import RankTrackingProject, TrackedKeyword, PositionHistory, PositionAlert
 from app.models.competitors.models import Competitor, CompetitorComparison
+from app.models.billing.models import Subscription, Payment, UserUsageLog
 
 config = context.config
 target_metadata = Base.metadata  # Все модели наследуются от Base

@@ -1,8 +1,12 @@
 # app/modules/seo_data/router.py
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi_limiter.depends import RateLimiter
 from app.api.v1.deps import get_current_user
 from app.models.seo_data.service import SEODataService
 from pydantic import BaseModel, Field
+from app.api.v1.deps import check_quota
+from app.core.db import get_async_session
+
 
 router = APIRouter(prefix="/seo", tags=["SEO Data"])
 
@@ -24,7 +28,13 @@ def get_seo_service():
     return SEODataService()
 
 
-@router.post("/serp")
+@router.post(
+    "/serp",
+    dependencies=[
+        Depends(check_quota),  # ← ← ← Проверка квоты пользователя
+        Depends(RateLimiter(times=30, minutes=1))  # ← Защита от ботов
+    ]
+)
 async def get_serp_data(
     request: SERPRequest,
     service: SEODataService = Depends(get_seo_service),
@@ -38,6 +48,13 @@ async def get_serp_data(
 
 
 @router.post("/keywords")
+@router.post(
+    "/keywords",
+    dependencies=[
+        Depends(check_quota),  # ← ← ← Проверка квоты пользователя
+        Depends(RateLimiter(times=30, minutes=1))  # ← Защита от ботов
+    ]
+)
 async def get_keyword_volume(
     request: KeywordRequest,
     service: SEODataService = Depends(get_seo_service),
@@ -50,7 +67,13 @@ async def get_keyword_volume(
     return result
 
 
-@router.post("/audit")
+@router.post(
+    "/audit",
+    dependencies=[
+        Depends(check_quota),  # ← ← ← Проверка квоты пользователя
+        Depends(RateLimiter(times=30, minutes=1))  # ← Защита от ботов
+    ]
+)
 async def audit_page(
     request: AuditRequest,
     service: SEODataService = Depends(get_seo_service),
@@ -63,7 +86,14 @@ async def audit_page(
     return result
 
 
-@router.get("/analyze")
+
+@router.post(
+    "/analyze",
+    dependencies=[
+        Depends(check_quota),  # ← ← ← Проверка квоты пользователя
+        Depends(RateLimiter(times=30, minutes=1))  # ← Защита от ботов
+    ]
+)
 async def analyze_keyword(
     keyword: str = Query(...),
     service: SEODataService = Depends(get_seo_service),

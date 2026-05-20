@@ -1,4 +1,4 @@
-version: "3.8"
+
 
 services:
   api:
@@ -17,10 +17,12 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # Используем Python вместо curl (он точно есть в образе)
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s  # Даём больше времени на первый старт
     networks:
       - seo-net
 

@@ -1,11 +1,13 @@
 # app/modules/competitors/router.py
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.deps import get_current_user
 from app.core.db import get_async_session
 from app.models.competitors.models import Competitor, CompetitorComparison
 from app.models.competitors.service import CompetitorService
 from pydantic import BaseModel
+from app.api.v1.deps import check_quota
 from typing import List, Optional
 
 router = APIRouter(prefix="/competitors", tags=["Competitors"])

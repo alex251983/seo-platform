@@ -15,7 +15,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """
     Bcrypt имеет жёсткий лимит 72 байта.
-    Безопасно обрезаем пароль до 72 байт перед хешированием.
+    Обрезаем пароль ДО передачи в passlib.
     """
     encoded = password.encode('utf-8')
     if len(encoded) > 72:
@@ -23,9 +23,10 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(encoded.decode('utf-8', 'ignore'))
 
 
-def create_access_token( dict, expires_delta: Optional[timedelta] = None, scopes: Optional[list[str]] = None) -> str:
+def create_access_token( data: dict, expires_delta: Optional[timedelta] = None, scopes: Optional[list[str]] = None) -> str:
     """
-    Создание JWT-токена с timezone-aware datetime и scopes.
+    Создание JWT-токена.
+    ✅ Исправлено: первый параметр имеет имя 'data'
     """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
@@ -33,9 +34,8 @@ def create_access_token( dict, expires_delta: Optional[timedelta] = None, scopes
     )
     to_encode.update({
         "exp": expire,
-        "iat": datetime.now(timezone.utc),  # issued at
-        "scope": scopes or ["user"],        # область действия токена
-        "env": settings.ENVIRONMENT         # для отладки
+        "iat": datetime.now(timezone.utc),
+        "scope": scopes or ["user"]
     })
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -47,8 +47,3 @@ def decode_access_token(token: str) -> dict:
         return payload
     except jwt.PyJWTError:
         return {}
-
-
-def get_current_user_scope(token_payload: dict) -> list[str]:
-    """Получение прав пользователя из токена."""
-    return token_payload.get("scope", ["user"])

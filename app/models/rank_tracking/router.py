@@ -1,5 +1,6 @@
 # app/modules/rank_tracking/router.py
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.deps import get_current_user
 from app.core.db import get_async_session
@@ -9,7 +10,7 @@ from app.models.rank_tracking.models import (
 )
 from pydantic import BaseModel
 from typing import List, Optional
-
+from app.api.v1.deps import check_quota
 router = APIRouter(prefix="/rank-tracking", tags=["Rank Tracking"])
 
 
@@ -31,6 +32,7 @@ def get_rank_service():
     return RankTrackingService()
 
 @router.post("/projects")
+
 async def create_project(
     data: ProjectCreate,
     db: AsyncSession = Depends(get_async_session),

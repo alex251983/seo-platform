@@ -192,35 +192,6 @@
     border-top: 1px solid var(--border);
   }
 
-  .mode-switcher {
-    display: flex;
-    background: var(--bg-primary);
-    border-radius: var(--radius-sm);
-    padding: 4px;
-    gap: 4px;
-  }
-
-  .mode-btn {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: var(--transition);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .mode-btn.active {
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 2px 10px var(--accent-glow);
-  }
-
   /* ===== MAIN ===== */
   .main {
     flex: 1;
@@ -1204,6 +1175,28 @@
     z-index: 100;
     pointer-events: none;
   }
+  
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  
+  .empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  
+  .empty-state h3 {
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  
+  .empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
 </style>
 </head>
 <body>
@@ -1224,9 +1217,8 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="mode-switcher">
-        <button class="mode-btn active" data-mode="user">👤 Пользователь</button>
-        <button class="mode-btn" data-mode="admin">⚙️ Админ</button>
+      <div style="padding: 8px 12px; font-size: 12px; color: var(--text-muted); text-align: center;">
+        <a href="/admin" style="color: var(--accent); text-decoration: none;">⚙️ Админ-панель</a>
       </div>
     </div>
   </aside>
@@ -1274,501 +1266,450 @@
 
 <script>
 // ===== STATE =====
-let currentMode = 'user';
 let currentPage = 'dashboard';
 let notifTimer = null;
+let userData = null;
 
-// ===== NAV CONFIG =====
-const navConfig = {
-  user: [
-    { section: 'Основное', items: [
-      { id: 'dashboard', icon: '📊', label: 'Дашборд' },
-      { id: 'projects', icon: '📁', label: 'Проекты', badge: '12' },
-      { id: 'keywords', icon: '🔑', label: 'Ключевые слова', badge: '847', badgeClass: 'green' },
-      { id: 'audit', icon: '🔍', label: 'Аудит сайта', badge: '3', badgeClass: 'red' },
-    ]},
-    { section: 'Аналитика', items: [
-      { id: 'positions', icon: '📈', label: 'Позиции' },
-      { id: 'backlinks', icon: '🔗', label: 'Бэклинки' },
-      { id: 'competitors', icon: '⚔️', label: 'Конкуренты' },
-      { id: 'reports', icon: '📋', label: 'Отчёты' },
-    ]},
-    { section: 'Инструменты', items: [
-      { id: 'serp', icon: '🌐', label: 'SERP Checker' },
-      { id: 'siteaudit', icon: '🛠️', label: 'Тех. аудит' },
-      { id: 'content', icon: '✍️', label: 'Контент' },
-    ]},
-  ],
-  admin: [
-    { section: 'Управление', items: [
-      { id: 'admin-dash', icon: '📊', label: 'Обзор' },
-      { id: 'users', icon: '👥', label: 'Пользователи', badge: '2,847' },
-      { id: 'subscriptions', icon: '💳', label: 'Подписки' },
-      { id: 'billing', icon: '💰', label: 'Биллинг' },
-    ]},
-    { section: 'Мониторинг', items: [
-      { id: 'server', icon: '🖥️', label: 'Серверы' },
-      { id: 'api', icon: '🔌', label: 'API Статус' },
-      { id: 'crawl-jobs', icon: '🕷️', label: 'Краулинг', badge: '5', badgeClass: 'green' },
-    ]},
-    { section: 'Настройки', items: [
-      { id: 'settings', icon: '⚙️', label: 'Настройки' },
-      { id: 'logs', icon: '📜', label: 'Логи' },
-      { id: 'integrations', icon: '🔗', label: 'Интеграции' },
-    ]},
-  ]
+// ===== NAV CONFIG (только пользовательские разделы) =====
+const navConfig = [
+  { section: 'Основное', items: [
+    { id: 'dashboard', icon: '📊', label: 'Дашборд' },
+    { id: 'projects', icon: '📁', label: 'Проекты' },
+    { id: 'keywords', icon: '🔑', label: 'Ключевые слова' },
+    { id: 'audit', icon: '🔍', label: 'Аудит сайта' },
+  ]},
+  { section: 'Аналитика', items: [
+    { id: 'positions', icon: '📈', label: 'Позиции' },
+    { id: 'backlinks', icon: '🔗', label: 'Бэклинки' },
+    { id: 'competitors', icon: '⚔️', label: 'Конкуренты' },
+    { id: 'reports', icon: '📋', label: 'Отчёты' },
+  ]},
+  { section: 'Инструменты', items: [
+    { id: 'serp', icon: '🌐', label: 'SERP Checker' },
+    { id: 'siteaudit', icon: '🛠️', label: 'Тех. аудит' },
+    { id: 'content', icon: '✍️', label: 'Контент' },
+  ]},
+];
+
+// ===== API CLIENT =====
+const API = {
+  base: '/api/v1',
+  
+  async request(endpoint, options = {}) {
+    const token = localStorage.getItem('seo_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    try {
+      const response = await fetch(`${this.base}${endpoint}`, {
+        ...options,
+        headers
+      });
+      
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('seo_token');
+        showNotification('error', '❌ Сессия истекла');
+        setTimeout(() => location.reload(), 1500);
+        return null;
+      }
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail?.message || `HTTP ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      showNotification('error', error.message);
+      throw error;
+    }
+  },
+  
+  async get(endpoint) {
+    return this.request(endpoint, { method: 'GET' });
+  },
+  
+  async post(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async put(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+  
+  async delete(endpoint) {
+    return this.request(endpoint, { method: 'DELETE' });
+  }
 };
 
 // ===== PAGE RENDERERS =====
 const pages = {
-  // ====== USER PAGES ======
-  dashboard: () => `
-    <div class="page-header">
-      <div class="page-title">
-        <h1>Добро пожаловать, Алексей! 👋</h1>
-        <p>Вот сводка ваших SEO-проектов за последние 7 дней</p>
+  dashboard: async () => {
+    // Загружаем реальные данные с API
+    let stats = null;
+    let activity = null;
+    let positions = null;
+    
+    try {
+      const [statsData, activityData, positionsData] = await Promise.all([
+        API.get('/stats/summary').catch(() => null),
+        API.get('/activity/recent').catch(() => null),
+        API.get('/positions/changes?limit=5').catch(() => null)
+      ]);
+      stats = statsData;
+      activity = activityData;
+      positions = positionsData;
+    } catch (e) {
+      console.warn('Using mock data:', e);
+    }
+    
+    return `
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Добро пожаловать${userData?.full_name ? ', ' + userData.full_name : ''}! 👋</h1>
+          <p>Вот сводка ваших SEO-проектов за последние 7 дней</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" onclick="exportReport()">📥 Экспорт</button>
+          <button class="btn btn-primary" onclick="openModal('project')">➕ Новый проект</button>
+        </div>
       </div>
-      <div class="page-actions">
-        <button class="btn btn-secondary" onclick="showNotification('info','📊 Отчёт формируется...')">📥 Экспорт</button>
-        <button class="btn btn-primary" onclick="openModal('project')">➕ Новый проект</button>
-      </div>
-    </div>
 
-    <div class="stats-grid">
-      <div class="stat-card purple">
-        <div class="stat-header">
-          <span class="stat-label">Всего проектов</span>
-          <div class="stat-icon purple">📁</div>
+      <div class="stats-grid">
+        <div class="stat-card purple">
+          <div class="stat-header">
+            <span class="stat-label">Всего проектов</span>
+            <div class="stat-icon purple">📁</div>
+          </div>
+          <div class="stat-value">${stats?.projects_count ?? '—'}</div>
+          <span class="stat-change ${stats?.projects_growth >= 0 ? 'up' : 'down'}">
+            ${stats?.projects_growth >= 0 ? '↑' : '↓'} ${Math.abs(stats?.projects_growth ?? 0)} за месяц
+          </span>
         </div>
-        <div class="stat-value">12</div>
-        <span class="stat-change up">↑ +2 за месяц</span>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-header">
-          <span class="stat-label">Ключей в ТОП-10</span>
-          <div class="stat-icon green">🏆</div>
+        <div class="stat-card green">
+          <div class="stat-header">
+            <span class="stat-label">Ключей в ТОП-10</span>
+            <div class="stat-icon green">🏆</div>
+          </div>
+          <div class="stat-value">${stats?.top10_keywords ?? '—'}</div>
+          <span class="stat-change up">↑ +${stats?.top10_growth ?? 0} (${stats?.top10_percent ?? 0}%)</span>
         </div>
-        <div class="stat-value">342</div>
-        <span class="stat-change up">↑ +28 (8.9%)</span>
-      </div>
-      <div class="stat-card orange">
-        <div class="stat-header">
-          <span class="stat-label">Средний трафик</span>
-          <div class="stat-icon orange">👥</div>
+        <div class="stat-card orange">
+          <div class="stat-header">
+            <span class="stat-label">Средний трафик</span>
+            <div class="stat-icon orange">👥</div>
+          </div>
+          <div class="stat-value">${formatNumber(stats?.avg_traffic ?? 0)}</div>
+          <span class="stat-change up">↑ +${stats?.traffic_growth ?? 0}%</span>
         </div>
-        <div class="stat-value">14.2K</div>
-        <span class="stat-change up">↑ +12.4%</span>
-      </div>
-      <div class="stat-card blue">
-        <div class="stat-header">
-          <span class="stat-label">SEO Score</span>
-          <div class="stat-icon blue">📈</div>
+        <div class="stat-card blue">
+          <div class="stat-header">
+            <span class="stat-label">SEO Score</span>
+            <div class="stat-icon blue">📈</div>
+          </div>
+          <div class="stat-value">${stats?.seo_score ?? '—'}</div>
+          <span class="stat-change up">↑ +${stats?.score_growth ?? 0} pts</span>
         </div>
-        <div class="stat-value">78</div>
-        <span class="stat-change up">↑ +5 pts</span>
       </div>
-    </div>
 
-    <div class="grid-3">
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Динамика позиций</div>
+              <div class="card-subtitle">Средняя позиция за 12 недель</div>
+            </div>
+            <div class="tabs" style="margin:0">
+              <button class="tab active">Позиции</button>
+              <button class="tab">Трафик</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <div class="chart-bars" id="mainChart"></div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot purple"></div> Позиции</div>
+            <div class="legend-item"><div class="legend-dot green"></div> Видимость</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">SEO Score</div>
+              <div class="card-subtitle">Общая оценка</div>
+            </div>
+          </div>
+          <div class="card-body" style="text-align:center">
+            <div class="score-ring">
+              <svg viewBox="0 0 120 120">
+                <circle class="bg" cx="60" cy="60" r="52"/>
+                <circle class="fill" cx="60" cy="60" r="52"
+                  stroke="url(#grad1)"
+                  stroke-dasharray="326.73"
+                  stroke-dashoffset="${326.73 * (1 - (stats?.seo_score ?? 0) / 100)}"/>
+                <defs>
+                  <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style="stop-color:#6c5ce7"/>
+                    <stop offset="100%" style="stop-color:#00cec9"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="value">${stats?.seo_score ?? '—'}</div>
+            </div>
+            <div style="margin-top:24px">
+              ${renderScoreBreakdown(stats?.breakdown)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Последние изменения позиций</div>
+              <div class="card-subtitle">Обновлено ${formatTime(stats?.last_update)}</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="navigate('positions')">Все →</button>
+          </div>
+          <div class="card-body no-pad">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>Ключевое слово</th><th>Позиция</th><th>Δ</th><th>Проект</th></tr>
+                </thead>
+                <tbody>
+                  ${(positions?.items ?? []).map(item => `
+                    <tr>
+                      <td style="font-weight:600">${escapeHtml(item.keyword)}</td>
+                      <td><strong>${item.position}</strong></td>
+                      <td><span class="stat-change ${item.delta >= 0 ? 'up' : 'down'}">
+                        ${item.delta >= 0 ? '↑' : '↓'} ${Math.abs(item.delta)}
+                      </span></td>
+                      <td><span class="status info">${escapeHtml(item.project)}</span></td>
+                    </tr>
+                  `).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Нет данных</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Активность</div>
+              <div class="card-subtitle">Последние действия</div>
+            </div>
+          </div>
+          <div class="card-body">
+            ${(activity?.items ?? []).map(item => `
+              <div class="activity-item">
+                <div class="activity-dot ${item.type || 'purple'}"></div>
+                <div>
+                  <div class="activity-text">${item.text}</div>
+                  <div class="activity-time">${formatTime(item.created_at)}</div>
+                </div>
+              </div>
+            `).join('') || '<div style="text-align:center;color:var(--text-muted);padding:20px">Нет активности</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  projects: async () => {
+    let projects = [];
+    try {
+      const data = await API.get('/projects');
+      projects = data?.items || [];
+    } catch (e) {
+      console.warn('Using mock data:', e);
+    }
+    
+    return `
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Проекты</h1>
+          <p>Управление вашими SEO-проектами</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">📥 Импорт</button>
+          <button class="btn btn-primary" onclick="openModal('project')">➕ Новый проект</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input class="form-input" placeholder="Поиск проектов..." onkeyup="filterProjects(this.value)">
+        <select class="form-select">
+          <option>Все статусы</option>
+          <option>Активные</option>
+          <option>На паузе</option>
+          <option>Завершены</option>
+        </select>
+        <select class="form-select">
+          <option>Все теги</option>
+          <option>E-commerce</option>
+          <option>SaaS</option>
+          <option>Блог</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-body no-pad">
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Проект</th>
+                  <th>Домен</th>
+                  <th>Ключей</th>
+                  <th>ТОП-10</th>
+                  <th>Трафик</th>
+                  <th>SEO Score</th>
+                  <th>Статус</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody id="projectsTable">
+                ${projects.length ? projects.map(p => renderProjectRow(p)).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Нет проектов</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pagination">
+          <span class="pagination-info">Показано 1-${Math.min(5, projects.length)} из ${projects.length} проектов</span>
+          <div class="pagination-btns">
+            <button class="page-btn" aria-label="Предыдущая">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn" aria-label="Следующая">›</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  keywords: async () => {
+    let keywords = [];
+    try {
+      const data = await API.get('/keywords');
+      keywords = data?.items || [];
+    } catch (e) {
+      console.warn('Using mock data:', e);
+    }
+    
+    return `
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Ключевые слова</h1>
+          <p>Мониторинг позиций по ${keywords.length || 847} ключевым словам</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">📥 Импорт CSV</button>
+          <button class="btn btn-primary" onclick="openModal('keyword')">➕ Добавить ключи</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card green">
+          <div class="stat-header"><span class="stat-label">ТОП-3</span><div class="stat-icon green">🥇</div></div>
+          <div class="stat-value">${keywords.filter(k => k.position <= 3).length || 156}</div>
+          <span class="stat-change up">↑ +12</span>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-header"><span class="stat-label">ТОП-10</span><div class="stat-icon purple">🏆</div></div>
+          <div class="stat-value">${keywords.filter(k => k.position <= 10).length || 342}</div>
+          <span class="stat-change up">↑ +28</span>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-header"><span class="stat-label">ТОП-30</span><div class="stat-icon orange">📊</div></div>
+          <div class="stat-value">${keywords.filter(k => k.position <= 30).length || 523}</div>
+          <span class="stat-change up">↑ +45</span>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-header"><span class="stat-label">Вне ТОП-100</span><div class="stat-icon blue">🔻</div></div>
+          <div class="stat-value">${keywords.filter(k => k.position > 100).length || 89}</div>
+          <span class="stat-change down">↓ -15</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
-          <div>
-            <div class="card-title">Динамика позиций</div>
-            <div class="card-subtitle">Средняя позиция за 12 недель</div>
+          <div class="card-title">Все ключевые слова</div>
+          <div class="filter-bar" style="margin:0">
+            <input class="form-input" placeholder="Фильтр по ключу..." style="min-width:200px" onkeyup="filterKeywords(this.value)">
+            <select class="form-select">
+              <option>Все проекты</option>
+            </select>
           </div>
-          <div class="tabs" style="margin:0">
-            <button class="tab active">Позиции</button>
-            <button class="tab">Трафик</button>
-          </div>
-        </div>
-        <div class="chart-container">
-          <div class="chart-bars" id="mainChart"></div>
-        </div>
-        <div class="chart-legend">
-          <div class="legend-item"><div class="legend-dot purple"></div> Позиции</div>
-          <div class="legend-item"><div class="legend-dot green"></div> Видимость</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">SEO Score</div>
-            <div class="card-subtitle">Общая оценка</div>
-          </div>
-        </div>
-        <div class="card-body" style="text-align:center">
-          <div class="score-ring">
-            <svg viewBox="0 0 120 120">
-              <circle class="bg" cx="60" cy="60" r="52"/>
-              <circle class="fill" cx="60" cy="60" r="52"
-                stroke="url(#grad1)"
-                stroke-dasharray="326.73"
-                stroke-dashoffset="71.88"/>
-              <defs>
-                <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" style="stop-color:#6c5ce7"/>
-                  <stop offset="100%" style="stop-color:#00cec9"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <div class="value">78</div>
-          </div>
-          <div style="margin-top:24px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
-              <span style="color:var(--text-secondary)">Тех. SEO</span>
-              <span style="font-weight:700">85%</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill green" style="width:85%"></div></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;margin-top:16px">
-              <span style="color:var(--text-secondary)">Контент</span>
-              <span style="font-weight:700">72%</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill purple" style="width:72%"></div></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;margin-top:16px">
-              <span style="color:var(--text-secondary)">Бэклинки</span>
-              <span style="font-weight:700">68%</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill orange" style="width:68%"></div></div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;margin-top:16px">
-              <span style="color:var(--text-secondary)">UX сигналы</span>
-              <span style="font-weight:700">81%</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill blue" style="width:81%"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Последние изменения позиций</div>
-            <div class="card-subtitle">Обновлено 2 часа назад</div>
-          </div>
-          <button class="btn btn-secondary btn-sm">Все →</button>
         </div>
         <div class="card-body no-pad">
           <div class="table-wrapper">
             <table>
               <thead>
-                <tr><th>Ключевое слово</th><th>Позиция</th><th>Δ</th><th>Проект</th></tr>
+                <tr><th>Ключевое слово</th><th>Проект</th><th>Позиция</th><th>Δ</th><th>Частотность</th><th>URL</th><th>Обновлено</th></tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td style="font-weight:600">купить iphone 15 pro</td>
-                  <td><strong>3</strong></td>
-                  <td><span class="stat-change up">↑ 5</span></td>
-                  <td><span class="status info"><span class="status-dot"></span>TechStore</span></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:600">seo продвижение цена</td>
-                  <td><strong>7</strong></td>
-                  <td><span class="stat-change up">↑ 3</span></td>
-                  <td><span class="status active"><span class="status-dot"></span>WebAgency</span></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:600">доставка цветов москва</td>
-                  <td><strong>12</strong></td>
-                  <td><span class="stat-change down">↓ 2</span></td>
-                  <td><span class="status warning"><span class="status-dot"></span>FloraMsk</span></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:600">ремонт квартир под ключ</td>
-                  <td><strong>5</strong></td>
-                  <td><span class="stat-change up">↑ 8</span></td>
-                  <td><span class="status info"><span class="status-dot"></span>RemontPro</span></td>
-                </tr>
-                <tr>
-                  <td style="font-weight:600">онлайн курсы python</td>
-                  <td><strong>9</strong></td>
-                  <td><span class="stat-change down">↓ 1</span></td>
-                  <td><span class="status active"><span class="status-dot"></span>EduHub</span></td>
-                </tr>
+              <tbody id="keywordsTable">
+                ${keywords.length ? keywords.slice(0, 5).map(k => `
+                  <tr>
+                    <td style="font-weight:600">${escapeHtml(k.keyword)}</td>
+                    <td>${escapeHtml(k.project || '—')}</td>
+                    <td><strong style="color:${getPositionColor(k.position)}">${k.position}</strong></td>
+                    <td><span class="stat-change ${k.delta >= 0 ? 'up' : 'down'}">${k.delta >= 0 ? '↑' : '↓'}${Math.abs(k.delta)}</span></td>
+                    <td>${k.volume ? formatNumber(k.volume) : '—'}</td>
+                    <td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(k.url || '—')}</td>
+                    <td>${formatTime(k.updated_at)}</td>
+                  </tr>
+                `).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Нет данных</td></tr>'}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="card-title">Активность</div>
-            <div class="card-subtitle">Последние действия</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="activity-item">
-            <div class="activity-dot green"></div>
-            <div>
-              <div class="activity-text"><strong>TechStore</strong> — 15 ключей вошли в ТОП-10</div>
-              <div class="activity-time">2 часа назад</div>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot purple"></div>
-            <div>
-              <div class="activity-text">Запущен аудит <strong>FloraMsk</strong></div>
-              <div class="activity-time">4 часа назад</div>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot orange"></div>
-            <div>
-              <div class="activity-text"><strong>WebAgency</strong> — обнаружено 12 битых ссылок</div>
-              <div class="activity-time">6 часов назад</div>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot red"></div>
-            <div>
-              <div class="activity-text"><strong>RemontPro</strong> — потеря 5 позиций по 8 ключам</div>
-              <div class="activity-time">вчера</div>
-            </div>
-          </div>
-          <div class="activity-item">
-            <div class="activity-dot green"></div>
-            <div>
-              <div class="activity-text">Отчёт <strong>EduHub</strong> сформирован и отправлен</div>
-              <div class="activity-time">вчера</div>
-            </div>
+        <div class="pagination">
+          <span class="pagination-info">Показано 1-${Math.min(5, keywords.length)} из ${keywords.length} ключей</span>
+          <div class="pagination-btns">
+            <button class="page-btn" aria-label="Предыдущая">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">...</button>
+            <button class="page-btn">${Math.ceil(keywords.length / 5)}</button>
+            <button class="page-btn" aria-label="Следующая">›</button>
           </div>
         </div>
       </div>
-    </div>
-  `,
+    `;
+  },
 
-  projects: () => `
-    <div class="page-header">
-      <div class="page-title">
-        <h1>Проекты</h1>
-        <p>Управление вашими SEO-проектами</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn btn-secondary">📥 Импорт</button>
-        <button class="btn btn-primary" onclick="openModal('project')">➕ Новый проект</button>
-      </div>
-    </div>
+  // Остальные страницы с моковыми данными (для краткости)
+  audit: () => pagesMock.audit(),
+  positions: () => pagesMock.positions(),
+  backlinks: () => pagesMock.backlinks(),
+  competitors: () => pagesMock.competitors(),
+  reports: () => pagesMock.reports(),
+  serp: () => pagesMock.serp(),
+  siteaudit: () => pagesMock.siteaudit(),
+  content: () => pagesMock.content(),
+};
 
-    <div class="filter-bar">
-      <input class="form-input" placeholder="Поиск проектов...">
-      <select class="form-select">
-        <option>Все статусы</option>
-        <option>Активные</option>
-        <option>На паузе</option>
-        <option>Завершены</option>
-      </select>
-      <select class="form-select">
-        <option>Все теги</option>
-        <option>E-commerce</option>
-        <option>SaaS</option>
-        <option>Блог</option>
-      </select>
-    </div>
-
-    <div class="card">
-      <div class="card-body no-pad">
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Проект</th>
-                <th>Домен</th>
-                <th>Ключей</th>
-                <th>ТОП-10</th>
-                <th>Трафик</th>
-                <th>SEO Score</th>
-                <th>Статус</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>TechStore</strong></td>
-                <td style="color:var(--text-muted)">techstore.ru</td>
-                <td>245</td>
-                <td><strong style="color:var(--green)">89%</strong></td>
-                <td>8.4K</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar" style="width:80px"><div class="progress-fill green" style="width:85%"></div></div>
-                    <span style="font-weight:700;font-size:13px">85</span>
-                  </div>
-                </td>
-                <td><span class="status active"><span class="status-dot"></span>Активен</span></td>
-                <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
-              </tr>
-              <tr>
-                <td><strong>WebAgency</strong></td>
-                <td style="color:var(--text-muted)">webagency.pro</td>
-                <td>189</td>
-                <td><strong style="color:var(--green)">76%</strong></td>
-                <td>5.2K</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar" style="width:80px"><div class="progress-fill purple" style="width:72%"></div></div>
-                    <span style="font-weight:700;font-size:13px">72</span>
-                  </div>
-                </td>
-                <td><span class="status active"><span class="status-dot"></span>Активен</span></td>
-                <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
-              </tr>
-              <tr>
-                <td><strong>FloraMsk</strong></td>
-                <td style="color:var(--text-muted)">floramsk.ru</td>
-                <td>156</td>
-                <td><strong style="color:var(--orange)">52%</strong></td>
-                <td>3.1K</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar" style="width:80px"><div class="progress-fill orange" style="width:58%"></div></div>
-                    <span style="font-weight:700;font-size:13px">58</span>
-                  </div>
-                </td>
-                <td><span class="status warning"><span class="status-dot"></span>Аудит</span></td>
-                <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
-              </tr>
-              <tr>
-                <td><strong>RemontPro</strong></td>
-                <td style="color:var(--text-muted)">remontpro.com</td>
-                <td>312</td>
-                <td><strong style="color:var(--green)">81%</strong></td>
-                <td>12.1K</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar" style="width:80px"><div class="progress-fill green" style="width:88%"></div></div>
-                    <span style="font-weight:700;font-size:13px">88</span>
-                  </div>
-                </td>
-                <td><span class="status active"><span class="status-dot"></span>Активен</span></td>
-                <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
-              </tr>
-              <tr>
-                <td><strong>EduHub</strong></td>
-                <td style="color:var(--text-muted)">eduhub.io</td>
-                <td>98</td>
-                <td><strong style="color:var(--green)">67%</strong></td>
-                <td>2.8K</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <div class="progress-bar" style="width:80px"><div class="progress-fill purple" style="width:65%"></div></div>
-                    <span style="font-weight:700;font-size:13px">65</span>
-                  </div>
-                </td>
-                <td><span class="status active"><span class="status-dot"></span>Активен</span></td>
-                <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pagination">
-        <span class="pagination-info">Показано 1-5 из 12 проектов</span>
-        <div class="pagination-btns">
-          <button class="page-btn" aria-label="Предыдущая">‹</button>
-          <button class="page-btn active">1</button>
-          <button class="page-btn">2</button>
-          <button class="page-btn">3</button>
-          <button class="page-btn" aria-label="Следующая">›</button>
-        </div>
-      </div>
-    </div>
-  `,
-
-  keywords: () => `
-    <div class="page-header">
-      <div class="page-title">
-        <h1>Ключевые слова</h1>
-        <p>Мониторинг позиций по 847 ключевым словам</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn btn-secondary">📥 Импорт CSV</button>
-        <button class="btn btn-primary" onclick="openModal('keyword')">➕ Добавить ключи</button>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card green">
-        <div class="stat-header"><span class="stat-label">ТОП-3</span><div class="stat-icon green">🥇</div></div>
-        <div class="stat-value">156</div>
-        <span class="stat-change up">↑ +12</span>
-      </div>
-      <div class="stat-card purple">
-        <div class="stat-header"><span class="stat-label">ТОП-10</span><div class="stat-icon purple">🏆</div></div>
-        <div class="stat-value">342</div>
-        <span class="stat-change up">↑ +28</span>
-      </div>
-      <div class="stat-card orange">
-        <div class="stat-header"><span class="stat-label">ТОП-30</span><div class="stat-icon orange">📊</div></div>
-        <div class="stat-value">523</div>
-        <span class="stat-change up">↑ +45</span>
-      </div>
-      <div class="stat-card blue">
-        <div class="stat-header"><span class="stat-label">Вне ТОП-100</span><div class="stat-icon blue">🔻</div></div>
-        <div class="stat-value">89</div>
-        <span class="stat-change down">↓ -15</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Все ключевые слова</div>
-        <div class="filter-bar" style="margin:0">
-          <input class="form-input" placeholder="Фильтр по ключу..." style="min-width:200px">
-          <select class="form-select">
-            <option>Все проекты</option>
-            <option>TechStore</option>
-            <option>WebAgency</option>
-          </select>
-        </div>
-      </div>
-      <div class="keyword-tags">
-        <span class="keyword-tag top"><span class="tag-pos">#1</span> купить iphone 15 pro</span>
-        <span class="keyword-tag top"><span class="tag-pos">#2</span> ремонт квартир москва</span>
-        <span class="keyword-tag top"><span class="tag-pos">#3</span> seo продвижение сайта</span>
-        <span class="keyword-tag top"><span class="tag-pos">#5</span> курсы программирования</span>
-        <span class="keyword-tag top"><span class="tag-pos">#4</span> доставка цветов</span>
-        <span class="keyword-tag mid"><span class="tag-pos">#15</span> заказать сайт</span>
-        <span class="keyword-tag mid"><span class="tag-pos">#22</span> продвижение интернет магазина</span>
-        <span class="keyword-tag mid"><span class="tag-pos">#18</span> веб разработка цена</span>
-        <span class="keyword-tag low"><span class="tag-pos">#45</span> купить ноутбук</span>
-        <span class="keyword-tag low"><span class="tag-pos">#67</span> онлайн обучение</span>
-        <span class="keyword-tag low"><span class="tag-pos">#89</span> дизайн интерьера</span>
-        <span class="keyword-tag low"><span class="tag-pos">#112</span> аренда офиса</span>
-      </div>
-      <div class="card-body no-pad">
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr><th>Ключевое слово</th><th>Проект</th><th>Позиция</th><th>Δ</th><th>Частотность</th><th>URL</th><th>Обновлено</th></tr>
-            </thead>
-            <tbody>
-              <tr><td style="font-weight:600">купить iphone 15 pro</td><td>TechStore</td><td><strong style="color:var(--green)">3</strong></td><td><span class="stat-change up">↑5</span></td><td>12,400</td><td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">/catalog/iphone-15-pro</td><td>2ч назад</td></tr>
-              <tr><td style="font-weight:600">seo продвижение цена</td><td>WebAgency</td><td><strong style="color:var(--green)">7</strong></td><td><span class="stat-change up">↑3</span></td><td>5,800</td><td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">/services/seo</td><td>2ч назад</td></tr>
-              <tr><td style="font-weight:600">доставка цветов москва</td><td>FloraMsk</td><td><strong style="color:var(--orange)">12</strong></td><td><span class="stat-change down">↓2</span></td><td>8,200</td><td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">/delivery</td><td>4ч назад</td></tr>
-              <tr><td style="font-weight:600">ремонт квартир под ключ</td><td>RemontPro</td><td><strong style="color:var(--green)">5</strong></td><td><span class="stat-change up">↑8</span></td><td>9,600</td><td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">/services/remont</td><td>2ч назад</td></tr>
-              <tr><td style="font-weight:600">онлайн курсы python</td><td>EduHub</td><td><strong style="color:var(--orange)">9</strong></td><td><span class="stat-change down">↓1</span></td><td>6,100</td><td style="color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis">/courses/python</td><td>4ч назад</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pagination">
-        <span class="pagination-info">Показано 1-5 из 847 ключей</span>
-        <div class="pagination-btns">
-          <button class="page-btn" aria-label="Предыдущая">‹</button>
-          <button class="page-btn active">1</button>
-          <button class="page-btn">2</button>
-          <button class="page-btn">3</button>
-          <button class="page-btn">...</button>
-          <button class="page-btn">170</button>
-          <button class="page-btn" aria-label="Следующая">›</button>
-        </div>
-      </div>
-    </div>
-  `,
-
+// Моковые данные для страниц, которые ещё не подключены к API
+const pagesMock = {
   audit: () => `
     <div class="page-header">
       <div class="page-title">
@@ -2017,249 +1958,102 @@ const pages = {
       </tbody></table>
     </div></div>
   `,
-
-  // ====== ADMIN PAGES ======
-  'admin-dash': () => `
-    <div class="page-header">
-      <div class="page-title">
-        <h1>Админ-панель ⚙️</h1>
-        <p>Обзор платформы RankPulse</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn btn-secondary" onclick="showNotification('info','📊 Генерация отчёта...')">📥 Отчёт</button>
-        <button class="btn btn-primary" onclick="openModal('admin-user')">➕ Пользователь</button>
-      </div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">Всего пользователей</span><div class="stat-icon purple">👥</div></div><div class="stat-value">2,847</div><span class="stat-change up">↑ +156 за месяц</span></div>
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">Активных подписок</span><div class="stat-icon green">💳</div></div><div class="stat-value">2,103</div><span class="stat-change up">↑ +89</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">MRR (₽)</span><div class="stat-icon orange">💰</div></div><div class="stat-value">4.2M</div><span class="stat-change up">↑ +18%</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">API запросов/день</span><div class="stat-icon blue">🔌</div></div><div class="stat-value">1.8M</div><span class="stat-change up">↑ +12%</span></div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Регистрации (30 дней)</div></div>
-        <div class="chart-container"><div class="chart-bars" id="adminRegChart"></div></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Распределение подписок</div></div>
-        <div class="card-body" style="text-align:center">
-          <div style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span>Free</span><strong>842 (29.6%)</strong></div>
-            <div class="progress-bar"><div class="progress-fill purple" style="width:29.6%"></div></div>
-          </div>
-          <div style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span>Pro</span><strong>1,245 (43.7%)</strong></div>
-            <div class="progress-bar"><div class="progress-fill green" style="width:43.7%"></div></div>
-          </div>
-          <div style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span>Business</span><strong>512 (18.0%)</strong></div>
-            <div class="progress-bar"><div class="progress-fill orange" style="width:18%"></div></div>
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span>Enterprise</span><strong>248 (8.7%)</strong></div>
-            <div class="progress-bar"><div class="progress-fill blue" style="width:8.7%"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><div class="card-title">Последние регистрации</div><button class="btn btn-secondary btn-sm">Все пользователи →</button></div>
-      <div class="card-body no-pad">
-        <table><thead><tr><th>Пользователь</th><th>Email</th><th>Тариф</th><th>Проектов</th><th>Дата</th><th>Статус</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Мария Иванова</strong></td><td>maria@email.ru</td><td><span class="status info">Pro</span></td><td>5</td><td>19 мая 2026</td><td><span class="status active">Активен</span></td></tr>
-          <tr><td><strong>Дмитрий Козлов</strong></td><td>dkozlov@corp.ru</td><td><span class="status warning">Business</span></td><td>15</td><td>18 мая 2026</td><td><span class="status active">Активен</span></td></tr>
-          <tr><td><strong>Анна Смирнова</strong></td><td>anna.s@gmail.com</td><td><span class="status">Free</span></td><td>1</td><td>17 мая 2026</td><td><span class="status warning">Триал</span></td></tr>
-          <tr><td><strong>ООО "ВебСтудия"</strong></td><td>admin@webstudio.ru</td><td><span class="status" style="background:rgba(108,92,231,0.15);color:var(--accent-light)">Enterprise</span></td><td>50</td><td>16 мая 2026</td><td><span class="status active">Активен</span></td></tr>
-        </tbody></table>
-      </div>
-    </div>
-  `,
-
-  users: () => `
-    <div class="page-header">
-      <div class="page-title"><h1>Пользователи</h1><p>Управление пользователями платформы</p></div>
-      <div class="page-actions">
-        <button class="btn btn-secondary">📥 Экспорт</button>
-        <button class="btn btn-primary" onclick="openModal('admin-user')">➕ Добавить</button>
-      </div>
-    </div>
-
-    <div class="filter-bar">
-      <input class="form-input" placeholder="Поиск по имени или email...">
-      <select class="form-select"><option>Все тарифы</option><option>Free</option><option>Pro</option><option>Business</option><option>Enterprise</option></select>
-      <select class="form-select"><option>Все статусы</option><option>Активные</option><option>Заблокированные</option><option>Триал</option></select>
-    </div>
-
-    <div class="card"><div class="card-body no-pad">
-      <table><thead><tr><th>Пользователь</th><th>Email</th><th>Тариф</th><th>Проектов</th><th>Ключей</th><th>Регистрация</th><th>Статус</th><th>Действия</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Алексей Иванов</strong></td><td>alex@techstore.ru</td><td><span class="status info">Pro</span></td><td>12</td><td>847</td><td>12 янв 2025</td><td><span class="status active">Активен</span></td><td><button class="btn-icon" aria-label="Действия">⋯</button></td></tr>
-        <tr><td><strong>Мария Петрова</strong></td><td>maria@agency.pro</td><td><span class="status warning">Business</span></td><td>25</td><td>2,340</td><td>3 мар 2025</td><td><span class="status active">Активен</span></td><td><button class="btn-icon" aria-label="Действия">⋯</button></td></tr>
-        <tr><td><strong>Сергей Волков</strong></td><td>volkov@mail.ru</td><td><span class="status">Free</span></td><td>1</td><td>50</td><td>10 апр 2026</td><td><span class="status warning">Триал</span></td><td><button class="btn-icon" aria-label="Действия">⋯</button></td></tr>
-        <tr><td><strong>ООО "ВебСтудия"</strong></td><td>admin@webstudio.ru</td><td><span class="status" style="background:rgba(108,92,231,0.15);color:var(--accent-light)">Enterprise</span></td><td>50</td><td>8,900</td><td>20 фев 2025</td><td><span class="status active">Активен</span></td><td><button class="btn-icon" aria-label="Действия">⋯</button></td></tr>
-        <tr><td><strong>Елена Новикова</strong></td><td>elena@blog.ru</td><td><span class="status info">Pro</span></td><td>8</td><td>560</td><td>15 май 2025</td><td><span class="status error">Заблокирован</span></td><td><button class="btn-icon" aria-label="Действия">⋯</button></td></tr>
-      </tbody></table>
-    </div>
-    <div class="pagination"><span class="pagination-info">Показано 1-5 из 2,847</span><div class="pagination-btns"><button class="page-btn" aria-label="Предыдущая">‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">...</button><button class="page-btn">570</button><button class="page-btn" aria-label="Следующая">›</button></div></div></div>
-  `,
-
-  subscriptions: () => `
-    <div class="page-header"><div class="page-title"><h1>Подписки</h1><p>Управление тарифными планами</p></div><div class="page-actions"><button class="btn btn-primary">➕ Новый тариф</button></div></div>
-    <div class="stats-grid">
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">Всего подписок</span><div class="stat-icon purple">💳</div></div><div class="stat-value">2,103</div><span class="stat-change up">↑ +89</span></div>
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">MRR</span><div class="stat-icon green">💰</div></div><div class="stat-value">4.2M ₽</div><span class="stat-change up">↑ +18%</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">Churn Rate</span><div class="stat-icon orange">📉</div></div><div class="stat-value">3.2%</div><span class="stat-change down">↓ -0.8%</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">LTV</span><div class="stat-icon blue">📊</div></div><div class="stat-value">₽18,400</div><span class="stat-change up">↑ +12%</span></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">Тарифные планы</div></div><div class="card-body no-pad">
-      <table><thead><tr><th>План</th><th>Цена/мес</th><th>Пользователей</th><th>Проектов</th><th>Ключей</th><th>ARPU</th></tr></thead>
-      <tbody>
-        <tr><td><strong>Free</strong></td><td>₽0</td><td>842</td><td>1</td><td>50</td><td>₽0</td></tr>
-        <tr><td><strong>Pro</strong></td><td>₽2,990</td><td>1,245</td><td>10</td><td>1,000</td><td>₽2,990</td></tr>
-        <tr><td><strong>Business</strong></td><td>₽7,990</td><td>512</td><td>50</td><td>10,000</td><td>₽7,990</td></tr>
-        <tr><td><strong>Enterprise</strong></td><td>₽19,990</td><td>248</td><td>∞</td><td>∞</td><td>₽19,990</td></tr>
-      </tbody></table>
-    </div></div>
-  `,
-
-  billing: () => `
-    <div class="page-header"><div class="page-title"><h1>Биллинг</h1><p>Финансы и транзакции</p></div></div>
-    <div class="stats-grid">
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">Доход (мес)</span><div class="stat-icon green">💰</div></div><div class="stat-value">₽4.2M</div><span class="stat-change up">↑ +18%</span></div>
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">Выплаты (мес)</span><div class="stat-icon purple">💸</div></div><div class="stat-value">₽1.8M</div><span class="stat-change up">↑ +5%</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">Просроченные</span><div class="stat-icon orange">⏰</div></div><div class="stat-value">₽340K</div><span class="stat-change down">↑ +45K</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">Возвраты</span><div class="stat-icon blue">↩️</div></div><div class="stat-value">₽89K</div><span class="stat-change down">↓ -12%</span></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">Последние транзакции</div></div><div class="card-body no-pad">
-      <table><thead><tr><th>ID</th><th>Пользователь</th><th>Тип</th><th>Сумма</th><th>Дата</th><th>Статус</th></tr></thead>
-      <tbody>
-        <tr><td>#TXN-8901</td><td>Алексей Иванов</td><td><span class="status active">Оплата</span></td><td><strong>₽2,990</strong></td><td>19 мая</td><td><span class="status active">Успешно</span></td></tr>
-        <tr><td>#TXN-8900</td><td>Мария Петрова</td><td><span class="status active">Оплата</span></td><td><strong>₽7,990</strong></td><td>18 мая</td><td><span class="status active">Успешно</span></td></tr>
-        <tr><td>#TXN-8899</td><td>Елена Новикова</td><td><span class="status error">Возврат</span></td><td><strong>-₽2,990</strong></td><td>17 мая</td><td><span class="status warning">Обработка</span></td></tr>
-        <tr><td>#TXN-8898</td><td>ООО "ВебСтудия"</td><td><span class="status active">Оплата</span></td><td><strong>₽19,990</strong></td><td>16 мая</td><td><span class="status active">Успешно</span></td></tr>
-      </tbody></table>
-    </div></div>
-  `,
-
-  server: () => `
-    <div class="page-header"><div class="page-title"><h1>Серверы</h1><p>Мониторинг серверной инфраструктуры</p></div></div>
-    <div class="stats-grid">
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">CPU</span><div class="stat-icon green">🖥️</div></div><div class="stat-value">42%</div><span class="stat-change up">Норма</span></div>
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">RAM</span><div class="stat-icon purple">💾</div></div><div class="stat-value">68%</div><span class="stat-change up">Норма</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">Диск</span><div class="stat-icon orange">💿</div></div><div class="stat-value">54%</div><span class="stat-change up">Норма</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">Uptime</span><div class="stat-icon blue">🟢</div></div><div class="stat-value">99.97%</div><span class="stat-change up">Отлично</span></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">Статус сервисов</div></div><div class="card-body no-pad">
-      <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">✅</div><div class="list-content"><div class="list-title">API Server</div><div class="list-desc">api.rankpulse.io — 12ms avg</div></div><div class="list-meta"><span class="status active">Online</span></div></div>
-      <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">✅</div><div class="list-content"><div class="list-title">Web Dashboard</div><div class="list-desc">app.rankpulse.io — 45ms avg</div></div><div class="list-meta"><span class="status active">Online</span></div></div>
-      <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">✅</div><div class="list-content"><div class="list-title">Crawler Cluster</div><div class="list-desc">5 workers active — 2,340 jobs/hr</div></div><div class="list-meta"><span class="status active">Online</span></div></div>
-      <div class="list-item"><div class="list-icon" style="background:var(--orange-soft);color:var(--orange)">⚠️</div><div class="list-content"><div class="list-title">Database (PostgreSQL)</div><div class="list-desc">High I/O — 89% connection pool</div></div><div class="list-meta"><span class="status warning">Warning</span></div></div>
-      <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">✅</div><div class="list-content"><div class="list-title">Redis Cache</div><div class="list-desc">Memory: 4.2GB / 8GB</div></div><div class="list-meta"><span class="status active">Online</span></div></div>
-    </div></div>
-  `,
-
-  api: () => `
-    <div class="page-header"><div class="page-title"><h1>API Статус</h1><p>Мониторинг API endpoint'ов</p></div></div>
-    <div class="stats-grid">
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">Запросов/сек</span><div class="stat-icon green">⚡</div></div><div class="stat-value">1,247</div><span class="stat-change up">↑ +8%</span></div>
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">Avg Response</span><div class="stat-icon purple">⏱️</div></div><div class="stat-value">45ms</div><span class="stat-change up">↑ -12ms</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">Error Rate</span><div class="stat-icon orange">❌</div></div><div class="stat-value">0.12%</div><span class="stat-change up">↓ -0.03%</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">Uptime</span><div class="stat-icon blue">🟢</div></div><div class="stat-value">99.99%</div><span class="stat-change up">Отлично</span></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">Endpoint'ы</div></div><div class="card-body no-pad">
-      <table><thead><tr><th>Endpoint</th><th>Метод</th><th>Req/min</th><th>P50</th><th>P99</th><th>Errors</th><th>Статус</th></tr></thead>
-      <tbody>
-        <tr><td>/api/v1/keywords</td><td><span class="status info">GET</span></td><td>4,520</td><td>12ms</td><td>89ms</td><td>0.01%</td><td><span class="status active">OK</span></td></tr>
-        <tr><td>/api/v1/projects</td><td><span class="status info">GET</span></td><td>2,100</td><td>18ms</td><td>120ms</td><td>0.02%</td><td><span class="status active">OK</span></td></tr>
-        <tr><td>/api/v1/audit</td><td><span class="status warning">POST</span></td><td>340</td><td>2,400ms</td><td>8,900ms</td><td>0.8%</td><td><span class="status warning">Slow</span></td></tr>
-        <tr><td>/api/v1/serp</td><td><span class="status info">GET</span></td><td>1,890</td><td>340ms</td><td>1,200ms</td><td>0.1%</td><td><span class="status active">OK</span></td></tr>
-      </tbody></table>
-    </div></div>
-  `,
-
-  'crawl-jobs': () => `
-    <div class="page-header"><div class="page-title"><h1>Краулинг</h1><p>Управление задачами обхода сайтов</p></div></div>
-    <div class="stats-grid">
-      <div class="stat-card green"><div class="stat-header"><span class="stat-label">Активных задач</span><div class="stat-icon green">🟢</div></div><div class="stat-value">5</div><span class="stat-change up">Норма</span></div>
-      <div class="stat-card purple"><div class="stat-header"><span class="stat-label">В очереди</span><div class="stat-icon purple">⏳</div></div><div class="stat-value">23</div><span class="stat-change up">↑ +5</span></div>
-      <div class="stat-card orange"><div class="stat-header"><span class="stat-label">Завершено (24ч)</span><div class="stat-icon orange">✅</div></div><div class="stat-value">847</div><span class="stat-change up">↑ +120</span></div>
-      <div class="stat-card blue"><div class="stat-header"><span class="stat-label">Страниц/час</span><div class="stat-icon blue">📄</div></div><div class="stat-value">12,400</div><span class="stat-change up">↑ +8%</span></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">Активные задачи</div></div><div class="card-body no-pad">
-      <table><thead><tr><th>Проект</th><th>URL</th><th>Прогресс</th><th>Скорость</th><th>Начало</th><th>Статус</th></tr></thead>
-      <tbody>
-        <tr><td>TechStore</td><td style="color:var(--text-muted)">techstore.ru</td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:100px"><div class="progress-fill green" style="width:78%"></div></div><span style="font-size:13px;font-weight:700">78%</span></div></td><td>1,200 стр/мин</td><td>2ч назад</td><td><span class="status active">Кролится</span></td></tr>
-        <tr><td>WebAgency</td><td style="color:var(--text-muted)">webagency.pro</td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:100px"><div class="progress-fill purple" style="width:45%"></div></div><span style="font-size:13px;font-weight:700">45%</span></div></td><td>890 стр/мин</td><td>4ч назад</td><td><span class="status active">Кролится</span></td></tr>
-        <tr><td>FloraMsk</td><td style="color:var(--text-muted)">floramsk.ru</td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:100px"><div class="progress-fill orange" style="width:12%"></div></div><span style="font-size:13px;font-weight:700">12%</span></div></td><td>450 стр/мин</td><td>1ч назад</td><td><span class="status active">Кролится</span></td></tr>
-      </tbody></table>
-    </div></div>
-  `,
-
-  settings: () => `
-    <div class="page-header"><div class="page-title"><h1>Настройки</h1><p>Конфигурация платформы</p></div></div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">Общие настройки</div></div><div class="card-body">
-        <div class="form-group"><label class="form-label">Название платформы</label><input class="form-input" value="RankPulse"></div>
-        <div class="form-group"><label class="form-label">Email поддержки</label><input class="form-input" value="support@rankpulse.io"></div>
-        <div class="form-group"><label class="form-label">Часовой пояс</label><select class="form-select"><option>Москва (UTC+3)</option><option>Лондон (UTC+0)</option></select></div>
-        <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Режим обслуживания</span></div></div>
-        <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Регистрация новых пользователей</span></div></div>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Настройки краулинга</div></div><div class="card-body">
-        <div class="form-group"><label class="form-label">Макс. потоков</label><input class="form-input" type="number" value="10"></div>
-        <div class="form-group"><label class="form-label">Задержка (мс)</label><input class="form-input" type="number" value="500"></div>
-        <div class="form-group"><label class="form-label">User Agent</label><input class="form-input" value="RankPulseBot/1.0"></div>
-        <div class="form-group"><label class="form-label">Макс. страниц на сайт</label><input class="form-input" type="number" value="10000"></div>
-        <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Уважать robots.txt</span></div></div>
-      </div></div>
-    </div>
-    <div style="text-align:right;margin-top:16px">
-      <button class="btn btn-primary" onclick="showNotification('success','✅ Настройки сохранены!')">💾 Сохранить</button>
-    </div>
-  `,
-
-  logs: () => `
-    <div class="page-header"><div class="page-title"><h1>Логи</h1><p>Системные логи и аудит действий</p></div></div>
-    <div class="card"><div class="card-header"><div class="card-title">Последние записи</div><div class="filter-bar" style="margin:0"><select class="form-select"><option>Все уровни</option><option>INFO</option><option>WARN</option><option>ERROR</option></select></div></div><div class="card-body no-pad">
-      <table><thead><tr><th>Время</th><th>Уровень</th><th>Сервис</th><th>Сообщение</th></tr></thead>
-      <tbody>
-        <tr><td>14:32:01</td><td><span class="status active">INFO</span></td><td>API</td><td style="color:var(--text-muted)">GET /api/v1/keywords — 200 OK — 12ms</td></tr>
-        <tr><td>14:31:58</td><td><span class="status warning">WARN</span></td><td>DB</td><td style="color:var(--text-muted)">Connection pool 89% utilized</td></tr>
-        <tr><td>14:31:45</td><td><span class="status active">INFO</span></td><td>Crawler</td><td style="color:var(--text-muted)">Job #4521 completed — techstore.ru — 1,247 pages</td></tr>
-        <tr><td>14:30:12</td><td><span class="status error">ERROR</span></td><td>API</td><td style="color:var(--text-muted)">POST /api/v1/audit — 504 Gateway Timeout</td></tr>
-        <tr><td>14:29:33</td><td><span class="status active">INFO</span></td><td>Auth</td><td style="color:var(--text-muted)">User login — alex@techstore.ru — success</td></tr>
-        <tr><td>14:28:01</td><td><span class="status active">INFO</span></td><td>Billing</td><td style="color:var(--text-muted)">Payment processed — #TXN-8901 — ₽2,990</td></tr>
-      </tbody></table>
-    </div></div>
-  `,
-
-  integrations: () => `
-    <div class="page-header"><div class="page-title"><h1>Интеграции</h1><p>Подключённые внешние сервисы</p></div></div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">Аналитика</div></div><div class="card-body">
-        <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">📊</div><div class="list-content"><div class="list-title">Google Analytics 4</div><div class="list-desc">Подключено • 12 проектов</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div></div></div>
-        <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">🔍</div><div class="list-content"><div class="list-title">Google Search Console</div><div class="list-desc">Подключено • 10 проектов</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div></div></div>
-        <div class="list-item"><div class="list-icon" style="background:var(--orange-soft);color:var(--orange)">🟡</div><div class="list-content"><div class="list-title">Яндекс.Метрика</div><div class="list-desc">Подключено • 8 проектов</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div></div></div>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Уведомления</div></div><div class="card-body">
-        <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">💬</div><div class="list-content"><div class="list-title">Slack</div><div class="list-desc">#seo-alerts • 24 проекта</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div></div></div>
-        <div class="list-item"><div class="list-icon" style="background:var(--green-soft);color:var(--green)">📧</div><div class="list-content"><div class="list-title">Email</div><div class="list-desc">Подключено</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div></div></div>
-        <div class="list-item"><div class="list-icon" style="background:var(--blue-soft);color:var(--blue)">🔔</div><div class="list-content"><div class="list-title">Telegram Bot</div><div class="list-desc">Не подключено</div></div><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track"><div class="toggle-thumb"></div></div></div></div>
-      </div></div>
-    </div>
-  `,
 };
+
+// ===== HELPER FUNCTIONS =====
+function renderProjectRow(project) {
+  return `
+    <tr>
+      <td><strong>${escapeHtml(project.name || 'Проект')}</strong></td>
+      <td style="color:var(--text-muted)">${escapeHtml(project.domain || '—')}</td>
+      <td>${project.keywords_count || 0}</td>
+      <td><strong style="color:var(--green)">${project.top10_percent || 0}%</strong></td>
+      <td>${formatNumber(project.traffic || 0)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar" style="width:80px">
+            <div class="progress-fill green" style="width:${project.seo_score || 0}%"></div>
+          </div>
+          <span style="font-weight:700;font-size:13px">${project.seo_score || 0}</span>
+        </div>
+      </td>
+      <td><span class="status ${project.status === 'active' ? 'active' : 'warning'}"><span class="status-dot"></span>${project.status === 'active' ? 'Активен' : 'Аудит'}</span></td>
+      <td><button class="btn-icon" aria-label="Действия">⋯</button></td>
+    </tr>
+  `;
+}
+
+function renderScoreBreakdown(breakdown = {}) {
+  const items = [
+    { label: 'Тех. SEO', key: 'technical', color: 'green' },
+    { label: 'Контент', key: 'content', color: 'purple' },
+    { label: 'Бэклинки', key: 'backlinks', color: 'orange' },
+    { label: 'UX сигналы', key: 'ux', color: 'blue' }
+  ];
+  
+  return items.map(item => `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+      <span style="color:var(--text-secondary)">${item.label}</span>
+      <span style="font-weight:700">${breakdown[item.key] ?? '—'}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill ${item.color}" style="width:${breakdown[item.key] ?? 0}%"></div>
+    </div>
+  `).join('');
+}
+
+function getPositionColor(position) {
+  if (position <= 3) return 'var(--green)';
+  if (position <= 10) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function formatNumber(num) {
+  if (!num) return '0';
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
+}
+
+function formatTime(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diff = (now - date) / 1000;
+  
+  if (diff < 60) return 'только что';
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
+  return date.toLocaleDateString('ru-RU');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function exportReport() {
+  try {
+    showNotification('info', '📊 Формирование отчёта...');
+    const blob = await API.get('/reports/export?format=pdf');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `seo-report-${new Date().toISOString().slice(0,10)}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification('success', '✅ Отчёт скачан');
+  } catch (e) {
+    showNotification('error', 'Ошибка экспорта: ' + e.message);
+  }
+}
 
 // ===== RENDER FUNCTIONS =====
 function renderNav() {
   const nav = document.getElementById('sidebarNav');
-  const config = navConfig[currentMode];
-  nav.innerHTML = config.map(section => `
+  nav.innerHTML = navConfig.map(section => `
     <div class="nav-section">
       <div class="nav-section-title">${section.section}</div>
       ${section.items.map(item => `
@@ -2273,30 +2067,45 @@ function renderNav() {
   `).join('');
 }
 
-function renderPage() {
+async function renderPage() {
   const content = document.getElementById('content');
   const pageId = currentPage;
   
-  // Map admin-dash to internal key
-  const renderKey = pageId;
+  content.innerHTML = '<div style="text-align:center;padding:60px 20px"><div style="font-size:24px;margin-bottom:16px">⏳</div><p style="color:var(--text-secondary)">Загрузка...</p></div>';
   
-  if (pages[renderKey]) {
-    content.innerHTML = `<div class="page active">${pages[renderKey]()}</div>`;
-  } else {
+  try {
+    const pageRenderer = pages[pageId];
+    if (pageRenderer) {
+      const html = await pageRenderer();
+      content.innerHTML = `<div class="page active">${html}</div>`;
+      
+      // Initialize charts after rendering
+      setTimeout(initCharts, 100);
+    } else {
+      content.innerHTML = `
+        <div class="page active">
+          <div class="empty-state">
+            <div class="icon">🚧</div>
+            <h3>Страница в разработке</h3>
+            <p>Этот раздел скоро будет доступен</p>
+            <button class="btn btn-primary" onclick="navigate('dashboard')">← На дашборд</button>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Render error:', error);
     content.innerHTML = `
       <div class="page active">
-        <div class="empty-state" style="text-align:center;padding:60px 20px">
-          <div style="font-size:48px;margin-bottom:16px">🚧</div>
-          <h3 style="font-size:20px;margin-bottom:8px">Страница в разработке</h3>
-          <p style="color:var(--text-secondary);margin-bottom:24px">Этот раздел скоро будет доступен</p>
-          <button class="btn btn-primary" onclick="navigate('dashboard')">← На дашборд</button>
+        <div class="empty-state">
+          <div class="icon">❌</div>
+          <h3>Ошибка загрузки</h3>
+          <p>${error.message}</p>
+          <button class="btn btn-primary" onclick="renderPage()">Повторить</button>
         </div>
       </div>
     `;
   }
-
-  // Initialize charts after rendering
-  setTimeout(initCharts, 100);
 }
 
 function navigate(pageId) {
@@ -2305,26 +2114,6 @@ function navigate(pageId) {
   renderPage();
   // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
-}
-
-function switchMode(mode) {
-  currentMode = mode;
-  
-  // Update mode buttons
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.mode === mode) {
-      btn.classList.add('active');
-    }
-  });
-  
-  // Reset to first page of selected mode
-  const firstPage = navConfig[mode][0].items[0].id;
-  currentPage = firstPage;
-  renderNav();
-  renderPage();
-  
-  showNotification('success', mode === 'admin' ? '⚙️ Режим администратора' : '👤 Режим пользователя');
 }
 
 function openModal(type) {
@@ -2337,57 +2126,41 @@ function openModal(type) {
     project: {
       title: '➕ Новый проект',
       body: `
-        <div class="form-group"><label class="form-label">Название проекта</label><input class="form-input" placeholder="Мой сайт"></div>
-        <div class="form-group"><label class="form-label">Домен</label><input class="form-input" placeholder="example.com"></div>
+        <div class="form-group"><label class="form-label">Название проекта</label><input class="form-input" id="proj-name" placeholder="Мой сайт"></div>
+        <div class="form-group"><label class="form-label">Домен</label><input class="form-input" id="proj-domain" placeholder="example.com"></div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">Регион</label><select class="form-select"><option>Москва</option><option>Санкт-Петербург</option><option>Россия</option></select></div>
-          <div class="form-group"><label class="form-label">Поисковик</label><select class="form-select"><option>Google</option><option>Яндекс</option><option>Оба</option></select></div>
+          <div class="form-group"><label class="form-label">Регион</label><select class="form-select" id="proj-region"><option>Москва</option><option>Санкт-Петербург</option><option>Россия</option></select></div>
+          <div class="form-group"><label class="form-label">Поисковик</label><select class="form-select" id="proj-engine"><option>Google</option><option>Яндекс</option><option>Оба</option></select></div>
         </div>
-        <div class="form-group"><label class="form-label">Ключевые слова (по одному на строку)</label><textarea class="form-textarea" rows="4" placeholder="seo продвижение&#10;продвижение сайта&#10;раскрутка сайта"></textarea></div>
+        <div class="form-group"><label class="form-label">Ключевые слова (по одному на строку)</label><textarea class="form-textarea" id="proj-keywords" rows="4" placeholder="seo продвижение&#10;продвижение сайта&#10;раскрутка сайта"></textarea></div>
       `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="closeModal();showNotification('success','✅ Проект создан!')">Создать проект</button>`
+      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="createProject()">Создать проект</button>`
     },
     keyword: {
       title: '➕ Добавить ключевые слова',
       body: `
-        <div class="form-group"><label class="form-label">Проект</label><select class="form-select"><option>TechStore</option><option>WebAgency</option><option>FloraMsk</option></select></div>
-        <div class="form-group"><label class="form-label">Ключевые слова</label><textarea class="form-textarea" rows="6" placeholder="купить ноутбук&#10;ноутбук цена&#10;лучший ноутбук 2026"></textarea></div>
-        <div class="form-group"><label class="form-label">Целевая страница (опционально)</label><input class="form-input" placeholder="/catalog/laptops"></div>
+        <div class="form-group"><label class="form-label">Проект</label><select class="form-select" id="kw-project"><option>TechStore</option><option>WebAgency</option><option>FloraMsk</option></select></div>
+        <div class="form-group"><label class="form-label">Ключевые слова</label><textarea class="form-textarea" id="kw-words" rows="6" placeholder="купить ноутбук&#10;ноутбук цена&#10;лучший ноутбук 2026"></textarea></div>
+        <div class="form-group"><label class="form-label">Целевая страница (опционально)</label><input class="form-input" id="kw-url" placeholder="/catalog/laptops"></div>
       `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="closeModal();showNotification('success','✅ Ключи добавлены!')">Добавить</button>`
+      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="addKeywords()">Добавить</button>`
     },
     audit: {
       title: '🔍 Запустить аудит',
       body: `
-        <div class="form-group"><label class="form-label">Проект</label><select class="form-select"><option>TechStore</option><option>WebAgency</option><option>FloraMsk</option></select></div>
-        <div class="form-group"><label class="form-label">Глубина сканирования</label><select class="form-select"><option>Быстрый (до 100 страниц)</option><option>Стандартный (до 1000)</option><option>Полный (все страницы)</option></select></div>
+        <div class="form-group"><label class="form-label">Проект</label><select class="form-select" id="audit-project"><option>TechStore</option><option>WebAgency</option><option>FloraMsk</option></select></div>
+        <div class="form-group"><label class="form-label">Глубина сканирования</label><select class="form-select" id="audit-depth"><option>Быстрый (до 100 страниц)</option><option>Стандартный (до 1000)</option><option>Полный (все страницы)</option></select></div>
         <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Проверить мобильную версию</span></div></div>
         <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Проверить скорость загрузки</span></div></div>
         <div class="form-group"><div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Проверить Schema.org разметку</span></div></div>
       `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="closeModal();showNotification('success','✅ Аудит запущен!')">Запустить</button>`
-    },
-    'admin-user': {
-      title: '👤 Новый пользователь',
-      body: `
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Имя</label><input class="form-input" placeholder="Иван"></div>
-          <div class="form-group"><label class="form-label">Фамилия</label><input class="form-input" placeholder="Иванов"></div>
-        </div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" placeholder="ivan@example.com"></div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Тариф</label><select class="form-select"><option>Free</option><option>Pro — ₽2,990/мес</option><option>Business — ₽7,990/мес</option><option>Enterprise — ₽19,990/мес</option></select></div>
-          <div class="form-group"><label class="form-label">Триал (дней)</label><input class="form-input" type="number" value="14"></div>
-        </div>
-        <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" type="password" placeholder="••••••••"></div>
-      `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-success" onclick="closeModal();showNotification('success','✅ Пользователь создан!')">Создать</button>`
+      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="runAudit()">Запустить</button>`
     },
     report: {
       title: '📋 Создать отчёт',
       body: `
-        <div class="form-group"><label class="form-label">Проект</label><select class="form-select"><option>TechStore</option><option>WebAgency</option><option>Все проекты</option></select></div>
-        <div class="form-group"><label class="form-label">Период</label><select class="form-select"><option>Последние 7 дней</option><option>Последние 30 дней</option><option>Квартал</option><option>Произвольный</option></select></div>
+        <div class="form-group"><label class="form-label">Проект</label><select class="form-select" id="report-project"><option>TechStore</option><option>WebAgency</option><option>Все проекты</option></select></div>
+        <div class="form-group"><label class="form-label">Период</label><select class="form-select" id="report-period"><option>Последние 7 дней</option><option>Последние 30 дней</option><option>Квартал</option><option>Произвольный</option></select></div>
         <div class="form-group"><label class="form-label">Разделы</label>
           <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
             <div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track active"><div class="toggle-thumb"></div></div><span class="toggle-label">Позиции</span></div>
@@ -2396,18 +2169,18 @@ function openModal(type) {
             <div class="toggle" onclick="this.querySelector('.toggle-track').classList.toggle('active')"><div class="toggle-track"><div class="toggle-thumb"></div></div><span class="toggle-label">Аудит</span></div>
           </div>
         </div>
-        <div class="form-group"><label class="form-label">Email получателя</label><input class="form-input" placeholder="client@example.com"></div>
+        <div class="form-group"><label class="form-label">Email получателя</label><input class="form-input" id="report-email" placeholder="client@example.com"></div>
       `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="closeModal();showNotification('success','✅ Отчёт создан!')">Создать</button>`
+      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="createReport()">Создать</button>`
     },
     competitor: {
       title: '⚔️ Добавить конкурента',
       body: `
-        <div class="form-group"><label class="form-label">Домен конкурента</label><input class="form-input" placeholder="competitor.com"></div>
-        <div class="form-group"><label class="form-label">Сравнить с проектом</label><select class="form-select"><option>TechStore</option><option>WebAgency</option></select></div>
-        <div class="form-group"><label class="form-label">Регион</label><select class="form-select"><option>Москва</option><option>Россия</option></select></div>
+        <div class="form-group"><label class="form-label">Домен конкурента</label><input class="form-input" id="comp-domain" placeholder="competitor.com"></div>
+        <div class="form-group"><label class="form-label">Сравнить с проектом</label><select class="form-select" id="comp-project"><option>TechStore</option><option>WebAgency</option></select></div>
+        <div class="form-group"><label class="form-label">Регион</label><select class="form-select" id="comp-region"><option>Москва</option><option>Россия</option></select></div>
       `,
-      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="closeModal();showNotification('success','✅ Конкурент добавлен!')">Добавить</button>`
+      footer: `<button class="btn btn-secondary" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="addCompetitor()">Добавить</button>`
     }
   };
 
@@ -2422,6 +2195,90 @@ function openModal(type) {
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// ===== API ACTIONS =====
+async function createProject() {
+  try {
+    const data = {
+      name: document.getElementById('proj-name').value,
+      domain: document.getElementById('proj-domain').value,
+      region: document.getElementById('proj-region').value,
+      engine: document.getElementById('proj-engine').value,
+      keywords: document.getElementById('proj-keywords').value.split('\n').filter(k => k.trim())
+    };
+    
+    await API.post('/projects', data);
+    closeModal();
+    showNotification('success', '✅ Проект создан!');
+    renderPage();
+  } catch (e) {
+    showNotification('error', 'Ошибка создания: ' + e.message);
+  }
+}
+
+async function addKeywords() {
+  try {
+    const data = {
+      project: document.getElementById('kw-project').value,
+      keywords: document.getElementById('kw-words').value.split('\n').filter(k => k.trim()),
+      url: document.getElementById('kw-url').value
+    };
+    
+    await API.post('/keywords', data);
+    closeModal();
+    showNotification('success', '✅ Ключи добавлены!');
+    renderPage();
+  } catch (e) {
+    showNotification('error', 'Ошибка добавления: ' + e.message);
+  }
+}
+
+async function runAudit() {
+  try {
+    const data = {
+      project: document.getElementById('audit-project').value,
+      depth: document.getElementById('audit-depth').value
+    };
+    
+    await API.post('/audit/run', data);
+    closeModal();
+    showNotification('success', '✅ Аудит запущен!');
+  } catch (e) {
+    showNotification('error', 'Ошибка запуска: ' + e.message);
+  }
+}
+
+async function createReport() {
+  try {
+    const data = {
+      project: document.getElementById('report-project').value,
+      period: document.getElementById('report-period').value,
+      email: document.getElementById('report-email').value
+    };
+    
+    await API.post('/reports', data);
+    closeModal();
+    showNotification('success', '✅ Отчёт создан!');
+  } catch (e) {
+    showNotification('error', 'Ошибка создания: ' + e.message);
+  }
+}
+
+async function addCompetitor() {
+  try {
+    const data = {
+      domain: document.getElementById('comp-domain').value,
+      project: document.getElementById('comp-project').value,
+      region: document.getElementById('comp-region').value
+    };
+    
+    await API.post('/competitors', data);
+    closeModal();
+    showNotification('success', '✅ Конкурент добавлен!');
+  } catch (e) {
+    showNotification('error', 'Ошибка добавления: ' + e.message);
+  }
 }
 
 function showNotification(type, text) {
@@ -2505,105 +2362,107 @@ function initCharts() {
       </div>
     `).join('');
   }
-
-  // Admin registrations chart
-  const adminRegChart = document.getElementById('adminRegChart');
-  if (adminRegChart) {
-    const data = [40, 55, 45, 60, 50, 70, 65, 80, 75, 90, 85, 95, 70, 88, 78, 92, 82, 100, 88, 95, 80, 105, 92, 110, 98, 115, 100, 120, 108, 125];
-    adminRegChart.innerHTML = data.map((val, i) => `
-      <div class="chart-bar-group">
-        <div class="chart-bar purple" style="height:${val}%"></div>
-        <span class="chart-bar-label">${i+1}</span>
-      </div>
-    `).join('');
-  }
 }
 
 // ===== EVENT LISTENERS =====
-// Mode switcher delegation
-document.querySelector('.mode-switcher').addEventListener('click', function(e) {
-  const btn = e.target.closest('.mode-btn');
-  if (btn) {
-    const mode = btn.dataset.mode;
-    if (mode) switchMode(mode);
-  }
-});
-
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
 });
 
-// ===== INIT =====
-renderNav();
-renderPage();
-
-// ===== LOGIN SYSTEM & API CONNECTION =====
-(function() {
-    const token = localStorage.getItem('seo_token');
-    if (!token) {
-        document.body.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f1117;font-family:'Segoe UI',sans-serif;color:#e8e8f0">
-                <div style="background:#222633;padding:40px;border-radius:16px;width:400px;border:1px solid #2d3148;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.4)">
-                    <h2 style="margin:0 0 10px;background:linear-gradient(135deg,#6c5ce7,#00cec9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:28px;font-weight:800">RankPulse</h2>
-                    <p style="color:#8b8da3;margin-bottom:24px">Вход в SEO-платформу</p>
-                    <input id="lp-email" type="email" value="newuser@seoviden.ru" style="width:100%;padding:12px;margin-bottom:12px;background:#2a2f3e;border:1px solid #2d3148;color:white;border-radius:8px;outline:none;font-size:14px" aria-label="Email">
-                    <input id="lp-pass" type="password" value="NewUser1234" style="width:100%;padding:12px;margin-bottom:20px;background:#2a2f3e;border:1px solid #2d3148;color:white;border-radius:8px;outline:none;font-size:14px" aria-label="Пароль">
-                    <button id="lp-btn" onclick="doLogin()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6c5ce7,#8b7cf7);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;box-shadow:0 4px 15px rgba(108,92,231,0.3)">Войти</button>
-                    <p id="lp-err" style="color:#ff6b6b;margin-top:16px;font-size:14px;min-height:20px"></p>
-                </div>
-            </div>`;
-    }
-})();
-
-async function doLogin() {
-    const btn = document.getElementById('lp-btn');
-    const err = document.getElementById('lp-err');
-    const email = document.getElementById('lp-email').value;
-    const pass = document.getElementById('lp-pass').value;
-    btn.disabled = true; btn.innerText = 'Вход...'; err.innerText = '';
-    try {
-        const res = await fetch('/api/v1/auth/login', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, password: pass })
-        });
-        const data = await res.json();
-        if (res.ok && data.access_token) {
-            localStorage.setItem('seo_token', data.access_token);
-            location.reload();
-        } else { err.innerText = data.detail || 'Ошибка авторизации'; }
-    } catch (e) { err.innerText = 'Сервер недоступен'; }
-    btn.disabled = false; btn.innerText = 'Войти';
+function toggleUserMenu() {
+  showNotification('info', 'Меню пользователя в разработке');
 }
 
 function logout() { 
-    localStorage.removeItem('seo_token'); 
-    location.reload(); 
-}
-
-function toggleUserMenu() {
-    // Placeholder for user menu functionality
-    showNotification('info', 'Меню пользователя в разработке');
+  localStorage.removeItem('seo_token'); 
+  location.reload(); 
 }
 
 // Add logout button when logged in
 if (localStorage.getItem('seo_token')) {
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const header = document.querySelector('.header-actions');
-            if (header) {
-                const btn = document.createElement('button');
-                btn.innerHTML = '🚪'; 
-                btn.className = 'header-btn';
-                btn.setAttribute('data-tooltip', 'Выйти'); 
-                btn.setAttribute('aria-label', 'Выйти из системы');
-                btn.onclick = logout;
-                header.insertBefore(btn, header.firstChild);
-            }
-        }, 500);
-    });
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const header = document.querySelector('.header-actions');
+      if (header) {
+        const btn = document.createElement('button');
+        btn.innerHTML = '🚪'; 
+        btn.className = 'header-btn';
+        btn.setAttribute('data-tooltip', 'Выйти'); 
+        btn.setAttribute('aria-label', 'Выйти из системы');
+        btn.onclick = logout;
+        header.insertBefore(btn, header.firstChild);
+      }
+    }, 500);
+  });
 }
-// ===== END LOGIN SYSTEM =====
+
+// ===== INIT =====
+async function init() {
+  // Check auth
+  const token = localStorage.getItem('seo_token');
+  if (!token) {
+    // Show login
+    document.body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f1117;font-family:'Segoe UI',sans-serif;color:#e8e8f0">
+        <div style="background:#222633;padding:40px;border-radius:16px;width:400px;border:1px solid #2d3148;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.4)">
+          <h2 style="margin:0 0 10px;background:linear-gradient(135deg,#6c5ce7,#00cec9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:28px;font-weight:800">RankPulse</h2>
+          <p style="color:#8b8da3;margin-bottom:24px">Вход в SEO-платформу</p>
+          <input id="lp-email" type="email" value="newuser@seoviden.ru" style="width:100%;padding:12px;margin-bottom:12px;background:#2a2f3e;border:1px solid #2d3148;color:white;border-radius:8px;outline:none;font-size:14px" aria-label="Email" placeholder="Email">
+          <input id="lp-pass" type="password" value="NewUser1234" style="width:100%;padding:12px;margin-bottom:20px;background:#2a2f3e;border:1px solid #2d3148;color:white;border-radius:8px;outline:none;font-size:14px" aria-label="Пароль" placeholder="Пароль">
+          <button id="lp-btn" onclick="doLogin()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6c5ce7,#8b7cf7);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:16px;box-shadow:0 4px 15px rgba(108,92,231,0.3)">Войти</button>
+          <p id="lp-err" style="color:#ff6b6b;margin-top:16px;font-size:14px;min-height:20px"></p>
+        </div>
+      </div>`;
+    return;
+  }
+  
+  // Load user data
+  try {
+    userData = await API.get('/users/me');
+  } catch (e) {
+    console.warn('Could not load user data:', e);
+  }
+  
+  renderNav();
+  await renderPage();
+}
+
+async function doLogin() {
+  const btn = document.getElementById('lp-btn');
+  const err = document.getElementById('lp-err');
+  const email = document.getElementById('lp-email').value;
+  const pass = document.getElementById('lp-pass').value;
+  
+  btn.disabled = true; 
+  btn.innerText = 'Вход...'; 
+  err.innerText = '';
+  
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST', 
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email, password: pass })
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok && data.access_token) {
+      localStorage.setItem('seo_token', data.access_token);
+      location.reload();
+    } else { 
+      err.innerText = data.detail || 'Ошибка авторизации'; 
+    }
+  } catch (e) { 
+    err.innerText = 'Сервер недоступен'; 
+  }
+  
+  btn.disabled = false; 
+  btn.innerText = 'Войти';
+}
+
+// Start app
+init();
 </script>
 
 </body>

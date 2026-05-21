@@ -87,7 +87,7 @@ services:
     networks:
       - seo-net
 
-  nginx:
+    nginx:
     image: nginx:alpine
     container_name: seo-nginx
     ports:
@@ -96,7 +96,7 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/letsencrypt:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro   # ← добавить эту строку
+      - ./frontend/dist:/usr/share/nginx/html:ro   # <-- добавить эту строку
     depends_on:
       - api
     restart: unless-stopped

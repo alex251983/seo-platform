@@ -87,7 +87,7 @@ services:
     networks:
       - seo-net
 
-    nginx:
+  nginx:
     image: nginx:alpine
     container_name: seo-nginx
     ports:
@@ -108,4 +108,4 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata:
+pgdata:

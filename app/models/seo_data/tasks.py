@@ -1,5 +1,5 @@
-# app/modules/seo_data/tasks.py
-from app.tasks.celery_app import celery
+# app/models/seo_data/tasks.py
+from app.tasks.celery_app import celery_app
 from app.models.seo_data.service import SEODataService
 from app.core.db import AsyncSessionLocal
 from app.models.seo_data.models import SERPQuery, KeywordData, SEOAudit
@@ -9,13 +9,11 @@ import structlog
 logger = structlog.get_logger()
 
 
-@celery.task(name="seo.collect_serp")
+@celery_app.task(name="seo.collect_serp")
 def collect_serp_task(keyword: str, engine: str = "google"):
-    """Фоновая задача: сбор SERP-данных"""
     async def _run():
         service = SEODataService()
         result = await service.get_serp(keyword, engine)
-
         if result.get("success"):
             async with AsyncSessionLocal() as db:
                 record = SERPQuery(
@@ -27,17 +25,14 @@ def collect_serp_task(keyword: str, engine: str = "google"):
                 db.add(record)
                 await db.commit()
                 logger.info("SERP saved", keyword=keyword, engine=engine)
-
     asyncio.run(_run())
 
 
-@celery.task(name="seo.collect_keyword_volume")
+@celery_app.task(name="seo.collect_keyword_volume")
 def collect_keyword_volume_task(keyword: str):
-    """Фоновая задача: сбор данных из Вордстата"""
     async def _run():
         service = SEODataService()
         result = await service.get_keyword_volume(keyword)
-
         if result.get("success"):
             async with AsyncSessionLocal() as db:
                 record = KeywordData(
@@ -48,17 +43,14 @@ def collect_keyword_volume_task(keyword: str):
                 db.add(record)
                 await db.commit()
                 logger.info("Keyword volume saved", keyword=keyword)
-
     asyncio.run(_run())
 
 
-@celery.task(name="seo.audit_page")
+@celery_app.task(name="seo.audit_page")
 def audit_page_task(url: str):
-    """Фоновая задача: SEO-аудит"""
     async def _run():
         service = SEODataService()
         result = await service.audit_url(url)
-
         if result.get("success"):
             async with AsyncSessionLocal() as db:
                 record = SEOAudit(
@@ -69,5 +61,4 @@ def audit_page_task(url: str):
                 db.add(record)
                 await db.commit()
                 logger.info("Audit saved", url=url, score=result.get("score"))
-
     asyncio.run(_run())

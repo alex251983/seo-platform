@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   test:
@@ -31,17 +31,32 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://seo:seopass@localhost:5432/seodb_test
       CELERY_BROKER_URL: redis://localhost:6379/0
       CELERY_RESULT_BACKEND: redis://localhost:6379/0
-      SECRET_KEY: testsecret
+      SECRET_KEY: ci-test-secret-key-min-32-chars-ok
+      ADMIN_EMAIL: admin@test.com
+      ADMIN_PASSWORD: adminpass123
+      ENVIRONMENT: development
+      XMLRIVER_USER_ID: ""
+      XMLRIVER_API_KEY: ""
+      YANDEX_OAUTH_TOKEN: ""
+      YANDEX_CLIENT_LOGIN: ""
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - name: Install Poetry
         run: pip install poetry
+
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --with dev
+
       - name: Lint with ruff
         run: poetry run ruff check .
+
+      - name: Run migrations
+        run: poetry run alembic upgrade head
+
       - name: Test with pytest
-        run: poetry run pytest
+        run: poetry run pytest -v --tb=short

@@ -1,5 +1,5 @@
-from app.tasks.celery_app import celery
+from app.tasks.celery_app import celery_app
 
-@celery.task(name="tasks.example")
+@celery_app.task(name="tasks.example")
 def example_task():
     return "Hello from Celery"
